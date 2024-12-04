@@ -1,0 +1,133 @@
+Parameter Name,Value
+Version MAJOR,4
+Config Version MINOR,0
+Number of CMU,2
+Cell In Series,20
+Max Cell Per Slave,12
+Cell In Slave 1,10
+Cell In Slave 2,10
+Cell In Slave 3,0
+Cell In Slave 4,0
+Cell In Slave 5,0
+Cell In Slave 6,0
+Cell In Slave 7,0
+Cell In Slave 8,0
+Cell In Slave 9,0
+Cell In Slave 10,0
+Cell In Slave 11,0
+Cell In Slave 12,0
+External NTC Per Slave,4
+Internal NTC Per Slave,3
+NTC Beta Value,3988
+Shunt Resistor,167
+Cell Max Voltage,3600
+Cell Min Voltage,3100
+Cell Balancing Start Voltage,3100
+Cell Imbalance Threshold,10
+Max Charge Current,180
+Max Discharge Current,200
+Pack Max Capacity,200
+Pack Min Capacity,1
+Cell Max Temp,45
+Cell Min Temp,0
+Board Max Temp,90
+Board Min Temp,0
+Error Timeout,500
+Warning Timeout,500
+Recovery Timeout,500
+Max Allowed Temp Change,50
+Max Allowed Temp Gradient,50
+High Imbalance Error,500
+Balancing Off Time,500
+Balancing On Time,100
+Contactor Cut Off Time,100
+Pre-charge Current,200
+Pre-charge Retry Timeout,2500
+Pre-charge Retry Limit,2500
+Pre-charge Timeout,1250
+Vehicle Rest Time,30
+Vehicle Rest Current,5
+Charge Current Detection Threshold,1
+Retry Priority Zero,5
+Retry Priority One,4
+Retry Priority Two,3
+Retry Priority Three,2
+Retry Priority Four,1
+Retry Priority Five,0
+Balancing Derating Start Temp,80
+Balancing Derating End Temp,90
+Balancing Max On Time,400
+Balancing Min On Time,100
+Balancing Max Off Time,200
+Balancing Min Off Time,100
+OCC Error Current,185
+OCC Warning Current,180
+OCD Error Current,185
+OCD Warning Current,180
+OTC Error Temp Group 1,55
+OTC Warning Temp Group 1,52
+OTC Recovery Temp Group 1,50
+OTD Error Temp Group 1,55
+OTD Warning Temp Group 1,52
+OTD Recovery Temp Group 1,50
+UTC Error Temp Group 1,0
+UTC Warning Temp Group 1,2
+UTC Recovery Temp Group 1,5
+UTD Error Temp Group 1,0
+UTD Warning Temp Group 1,2
+UTD Recovery Temp Group 1,5
+OTC Error Temp Group 2,95
+OTC Warning Temp Group 2,92
+OTC Recovery Temp Group 2,90
+OTD Error Temp Group 2,95
+OTD Warning Temp Group 2,92
+OTD Recovery Temp Group 2,90
+UTC Error Temp Group 2,0
+UTC Warning Temp Group 2,2
+UTC Recovery Temp Group 2,5
+UTD Error Temp Group 2,0
+UTD Warning Temp Group 2,2
+UTD Recovery Temp Group 2,5
+OTC Error Temp Group 3,0
+OTC Warning Temp Group 3,0
+OTC Recovery Temp Group 3,0
+OTD Error Temp Group 3,0
+OTD Warning Temp Group 3,0
+OTD Recovery Temp Group 3,0
+UTC Error Temp Group 3,0
+UTC Warning Temp Group 3,0
+UTC Recovery Temp Group 3,0
+UTD Error Temp Group 3,0
+UTD Warning Temp Group 3,0
+UTD Recovery Temp Group 3,0
+OTC Error Temp Group 4,0
+OTC Warning Temp Group 4,0
+OTC Recovery Temp Group 4,0
+OTD Error Temp Group 4,0
+OTD Warning Temp Group 4,0
+OTD Recovery Temp Group 4,0
+UTC Error Temp Group 4,0
+UTC Warning Temp Group 4,0
+UTC Recovery Temp Group 4,0
+UTD Error Temp Group 4,0
+UTD Warning Temp Group 4,0
+UTD Recovery Temp Group 4,0
+OTC Error Temp Group 5,0
+OTC Warning Temp Group 5,0
+OTC Recovery Temp Group 5,0
+OTD Error Temp Group 5,0
+OTD Warning Temp Group 5,0
+OTD Recovery Temp Group 5,0
+UTC Error Temp Group 5,0
+UTC Warning Temp Group 5,0
+UTC Recovery Temp Group 5,0
+UTD Error Temp Group 5,0
+UTD Warning Temp Group 5,0
+UTD Recovery Temp Group 5,0
+ARC Cartridge Temp,0
+ARC Cooling Temp,0
+ARC Cooling Temp Charging,0
+ARC Enable,0
+ARC Heating Temp,69
+ARC Heating Temp Charging,420
+ARC Cooling Type,69
