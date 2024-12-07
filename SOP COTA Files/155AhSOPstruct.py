@@ -16,7 +16,7 @@ def calculate_crc_sop(data):
     
     return ~crc & 0xFFFFFFFF
 
-continuousChargingTableData_raw = [ #110
+continuousChargingTableData = [ #110
                 0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,
                 20.64,  20.64,  20.64,  20.64,  20.64,  20.64,  20.64,  20.64,  20.64,  20.64,  17.2,
                 51.6,   51.6,   51.6,   51.6,   51.6,   51.6,   51.6,   51.6,   51.6,   51.6,   34.4,
@@ -30,7 +30,7 @@ continuousChargingTableData_raw = [ #110
 
 
             
-continuousDischargingTableData_raw = [ #165
+continuousDischargingTableData = [ #165
                 34,     51,     51,     86,     86,     86,     86,     86,     86,     86,     86,
                 50,     86,     86,     137,    137,    137,    137,    137,    137,    137,    137,
                 50,     86,     86,     137,    137,    137,    137,    137,    137,    137,    137,
@@ -49,7 +49,7 @@ continuousDischargingTableData_raw = [ #165
 
 
 
-instantaneousChargingTableData_raw = [
+instantaneousChargingTableData = [
                 0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,
                 68.8,   68.8,   68.8,   68.8,   68.8,   68.8,   68.8,   68.8,   68.8,   68.8,   51.6,
                 137.6,  137.6,  137.6,  137.6,  137.6,  137.6,  137.6,  137.6,  137.6,  137.6,  103.2,
@@ -62,7 +62,7 @@ instantaneousChargingTableData_raw = [
                 0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0]
             
             
-instantaneousDischargingTableData_raw = [ #165
+instantaneousDischargingTableData = [ #165
                 34,     51,     68.8,   172,    172,    172,    172,    172,    172,    172,    172,
                 50,     86,     103.2,  206.4,  206.4,  206.4,  206.4,  206.4,  206.4,  206.4,  206.4,
                 50,     86,     172,    258,    258,    258,    258,    258,    258,    258,    258,
@@ -80,11 +80,6 @@ instantaneousDischargingTableData_raw = [ #165
                 0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0]
 
 
-continuousChargingTableData = np.array([int(f) for f in continuousChargingTableData_raw], dtype=np.int16)
-continuousDischargingTableData = np.array([int(f) for f in continuousDischargingTableData_raw], dtype=np.int16)
-instantaneousChargingTableData = np.array([int(f) for f in instantaneousChargingTableData_raw], dtype=np.int16)
-instantaneousDischargingTableData = np.array([int(f) for f in instantaneousDischargingTableData_raw], dtype=np.int16)
-
 chargingTemperatureData = [ 0, 5, 10, 15, 20, 25, 45, 50, 55, 60 ]  
 chargingMaxElements = [ 10, 11 ]
 
@@ -95,16 +90,16 @@ socData = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
 
 
 data = continuousChargingTableData + continuousDischargingTableData + instantaneousDischargingTableData + instantaneousChargingTableData +socData + chargingTemperatureData + dischargingTemperatureData + chargingMaxElements + dischargingMaxElements
-
+data = [int(item) for item in data]
 # Pack the data
 packed_data = struct.pack(f'{len(data)}h', *data)
 
 # Calculate CRC over the data (not including the CRC itself)
 crc = calculate_crc_sop(packed_data)
 print(crc)
+packed_data_with_crc = packed_data + struct.pack('I', crc)
 
-# Write data to file
-with open("battery_data.bin", "wb") as f:
-    f.write(packed_data)
-    f.write(struct.pack('I', crc))
+# Write the packed data along with the CRC to a binary file
+with open("hicity_battery_data.bin", "wb") as f:
+    f.write(packed_data_with_crc)
 
