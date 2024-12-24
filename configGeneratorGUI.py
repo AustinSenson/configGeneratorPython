@@ -1,11 +1,15 @@
 import csv
 import struct
+import json
+import base64
 from tkinter import Tk, Label, Entry, Button, filedialog, Frame, Scrollbar, Canvas, LEFT, RIGHT, Y, BOTH, VERTICAL
 from tkinter.filedialog import askopenfilename, asksaveasfilename
 from tkinter import messagebox
 from tkinter import simpledialog
 from PIL import Image, ImageTk
 import subprocess
+import tempfile
+import os
 
 def clear_initial_buttons():
     fota_button.pack_forget()
@@ -72,7 +76,12 @@ def write_csv_with_crc(data, crc_value, save_path):
             # Write the data as a single row in the CSV
             csv_writer.writerow(data)
 
+        with open(save_path, 'r') as file:
+            file_content = file.read()
+        # character_count = len(file_content)  # Calculate the total length of the file
+
         print(f"Updated CSV saved to: {save_path}")
+        # print(f"Total number of characters in the CSV: {character_count}")
         
     
     else:
@@ -112,7 +121,7 @@ def save_all_configs(parameter_names, config_values):
     # csv_file_path = asksaveasfilename(title="Save CSV with config names", defaultextension=".csv", filetypes=[("CSV Files", "*.csv")])
 
     """ File name based on Major Config Version """
-
+    print(config_values)
     config_version = int(config_values[0])
     base_filename = f"v{config_version:02d}.00.00"
     csv_file_path = f"{base_filename}.csv"
@@ -123,19 +132,22 @@ def save_all_configs(parameter_names, config_values):
 
         with open(csv_ref_file_path, 'w', newline='') as csvfile:
             csv_writer = csv.writer(csvfile)
-            
             csv_writer.writerow(['Parameter Name', 'Value'])
-            
             # Write parameter names and values
             for name, value in zip(parameter_names, config_values):
                 csv_writer.writerow([name, value])
-        
-        # Print confirmation message
-        print(f"New configuration saved to {csv_ref_file_path}")
+        # print(f"New configuration saved to {csv_ref_file_path}")
+
+        #Load file for that particular config to be saved
+        csv_load_file_path = csv_file_path.replace(".csv", "_load.csv")
+        with open(csv_load_file_path, 'w', newline='') as csvfile:
+            csv_writer = csv.writer(csvfile)       
+            csv_writer.writerow(config_values)
+        # print(f"New configuration values saved to {csv_load_file_path}")
 
     save_config_values(config_values, csv_file_path)
 
-    close = messagebox.askyesno("Configuration details saved to successfully!!!, Do you wish to close?")
+    close = messagebox.askyesno("Configuration details saved successfully!\nDo you wish to close?")
     
     if close:
             print("Process completed successfully... Shutting Down.....")
@@ -152,7 +164,29 @@ def save_configs(entry_fields, parameter_names):
     # Save the reference CSV and config values
     save_all_configs(parameter_names, config_values)   # Reference CSV
     
+def select_file(file_type):
+    # Open file dialog for selecting files
+    root = Tk()
+    root.withdraw()  # Hide the root window
+    file_path = filedialog.askopenfilename(title=f"Select {file_type} file", filetypes=[("All Files", "*.*")])
+    return file_path
 
+def add_slashes_before_key_in_string(csv_file, input_string, num_slashes):
+
+    x = input_string.find("\"binary_data\"")
+    print("Index of '\"binary_data\"':", x)
+    slashes = "\\" * num_slashes
+    print(input_string[x:])
+    modified_string = input_string[:x] + slashes + input_string[x:]
+    string_val = modified_string.replace('"', '\\"')
+    string_val = string_val.replace('n\\', '\\n\\')
+    with open(csv_file, "w") as file:
+        file.write(string_val)
+    print("Modified string:", string_val)
+    
+    return string_val
+    # print("Modified string:", string_val)
+        
 
 # Function to load config values from a CSV file and populate the fields
 def load_configs(entry_fields):
@@ -172,9 +206,52 @@ def load_configs_pass(entry_fields):
                 entry.delete(0, 'end')
                 entry.insert(0, config_values[i])
 
+def prepare_data_for_transmission(csv_file, csv_data, binary_data,character_count):
+    # Encode binary data as Base64
+    binary_base64 = base64.b64encode(binary_data).decode('utf-8')
+    
+    # Ensure null termination for csv_data (replace newline with null byte)
+    # csv_data = csv_data.rstrip('\n') + '\0'  # Add null terminator at the end
+    # csv_data = csv_data.rstrip('\n') + '\0'  # Add null terminator at the end
+    # Prepare a dictionary to hold both CSV data and binary data
+    data = \
+    {
+        "csv_data": csv_data,
+        "binary_data": binary_base64
+    }
+  
+    # Convert the dictionary to a JSON string without spaces after commas and colons
+    json_data = json.dumps(data, separators=(',', ':'))
+    # Escape double quotes in the JSON string for use in C code
+    json_data_c_style = json_data.replace('"', '\\"')
+    num_slashes = 4 - ((character_count + 2) % 4)                                          # considering the /n/ also
+    json_data_c_style = json_data_c_style.replace("\\", "")
+    json_data_new = add_slashes_before_key_in_string(csv_file, json_data_c_style, num_slashes)
+    print(json_data_new)
+    return json_data_new
+
+def jsonGenerator(csv_file, binary_file):
+    # Ask the user to select a CSV file and a binary file
+    
+    # Read the CSV file
+    with open(csv_file, 'r') as f:
+        csv_data = f.read()
+    character_count = len(csv_data)
+    print(character_count)
+    # Read the binary file
+    with open(binary_file, 'rb') as f:
+        binary_data = f.read()
+
+    transmission_data = prepare_data_for_transmission(csv_file, csv_data, binary_data,character_count)
+    print("Transmission Data:", transmission_data)
+
+
 def flashConfigs():
     # Open file dialog to select a configuration file
-    file_path = filedialog.askopenfilename(title="Select Configuration File", filetypes=[("CSV Files", "*.csv")])
+    csv_file = select_file("CSV")
+    binary_file = select_file("binary")
+    jsonGenerator(csv_file, binary_file)
+    file_path = csv_file
     # config_version = file_path.replace('v', '').replace('.csv', '')
     
     # Confirm with the user if they want to proceed with flashing
@@ -267,37 +344,76 @@ def run_cota():
 
     # Define labels and entries in the frame
     parameter_names = [
-    "CONFIG_MAJOR_VERSION" ,
-    "CONFIG_MINOR_VERSION" ,
-    "NUMBER_OF_CMU" ,
-    "CELL_IN_SERIES" ,
-    "SHUNT_RESISTOR_uOhm" ,
-    "CELL_MAX_VOLTAGE_THRESHOLD_mV" ,
-    "CELL_MIN_VOLTAGE_THRESHOLD_mV" ,
-    "CELL_BALANCING_START_VOLTAGE_mV" ,
+    "CONFIG_MAJOR_VERSION",
+    "CONFIG_MINOR_VERSION",
+    "NUMBER_OF_CMU",
+    "CELL_IN_SERIES",
+    "SHUNT_RESISTOR_uOhm",
+    "CELL_MAX_VOLTAGE_THRESHOLD_mV",
+    "CELL_MIN_VOLTAGE_THRESHOLD_mV",
+    "CELL_BALANCING_START_VOLTAGE_mV",
     "CELL_IMBALANCE_THRESHOLD_mV",
-    "PACK_MAX_CAPACITY_Ah" ,
-    "PACK_MIN_CAPACITY_Ah" ,
-    "PACK_USABLE_CAPACITY_mAh" ,
-    "EEPROM_CAP_WRITE_mAh" ,
-    "IR_WAIT_SOC" ,
-    "IR_START_SOC" ,
-    "IR_CYCLE_COUNT_THRESHOLD" ,
-    "FAST_CHARGING_MAX_CURRENT_A" ,
-    "ERROR_TIMEOUT_ms" ,
-    "WARNING_TIMEOUT_ms" ,
-    "RECOVERY_TIMEOUT_ms" ,
-    "PRECHARGE_RETRY_TIMEOUT",
-    "PRECHARGE_RETRY_LIMIT",
-    "PRECHARGE_TIMEOUT",
+    "PACK_MAX_CAPACITY_Ah",
+    "PACK_USABLE_CAPACITY_mAh",
+    "EEPROM_CAP_WRITE_mAh",
+    "IR_WAIT_SOC",
+    "IR_START_SOC",
+    "IR_CYCLE_COUNT_THRESHOLD",
+    "SLOW_CHARGING_MAX_CURRENT_A",
+    "FAST_CHARGING_MAX_CURRENT_A",
+    "CHARGE_CURRENT_DETECTION_THRESHOLD_mA",
+    "SLOW_CHARGING_TARGET_mV",
+    "FAST_CHARGING_TARGET_mV",
+    "CV_TRANSITION_mV",
+   
+    #Scale it *100
+    "FAST_CHARGING_SCALING_FACTOR",
+    "SLOW_CHARGING_CV_SCALING_FACTOR",
+    "SLOW_CHARGING_CC_SCALING_FACTOR",
+
+    "OCC_ERROR_CURRENT_A",
+    "OCC_WARNING_CURRENT_A",
+    "OCD_ERROR_CURRENT_A",
+    "OCD_WARNING_CURRENT_A",
+    "ERROR_TIMEOUT_ms",
+    "WARNING_TIMEOUT_ms",
+    "RECOVERY_TIMEOUT_ms",
     "BALANCING_DERATING_START_TEMP_C",
     "BALANCING_DERATING_END_TEMP_C",
-    "BALANCING_MAX_ON_TIME_ms" ,
-    "BALANCING_MIN_ON_TIME_ms" ,
-    "BALANCING_MAX_OFF_TIME_ms" ,
-    "BALANCING_MIN_OFF_TIME_ms" ,
-    "MINIMUM_REQUIRED_CONFIG"  #TODO ADD RANGES FOR ALL PARAMS  ,OUT OF BOUNDS 
-    ]
+    "BALANCING_MAX_ON_TIME_ms",
+    "BALANCING_MIN_ON_TIME_ms",
+    "BALANCING_MAX_OFF_TIME_ms",
+    "OTC_ERROR_TEMPERATURE_GROUP_1",
+    "OTC_WARNING_TEMPERATURE_GROUP_1",
+    "OTC_RECOVERY_TEMPERATURE_GROUP_1",
+    "OTD_ERROR_TEMPERATURE_GROUP_1",
+    "OTD_WARNING_TEMPERATURE_GROUP_1",
+    "OTD_RECOVERY_TEMPERATURE_GROUP_1",
+    "UTC_ERROR_TEMPERATURE_GROUP_1",
+    "UTC_WARNING_TEMPERATURE_GROUP_1",
+    "UTC_RECOVERY_TEMPERATURE_GROUP_1",
+    "UTD_ERROR_TEMPERATURE_GROUP_1",
+    "UTD_WARNING_TEMPERATURE_GROUP_1",
+    "UTD_RECOVERY_TEMPERATURE_GROUP_1",
+    "OTC_ERROR_TEMPERATURE_GROUP_2",
+    "OTC_WARNING_TEMPERATURE_GROUP_2",
+    "OTC_RECOVERY_TEMPERATURE_GROUP_2",
+    "OTD_ERROR_TEMPERATURE_GROUP_2",
+    "OTD_WARNING_TEMPERATURE_GROUP_2",
+    "OTD_RECOVERY_TEMPERATURE_GROUP_2",
+    "UTC_ERROR_TEMPERATURE_GROUP_2",
+    "UTC_WARNING_TEMPERATURE_GROUP_2",
+    "UTC_RECOVERY_TEMPERATURE_GROUP_2",
+    "UTD_ERROR_TEMPERATURE_GROUP_2",
+    "UTD_WARNING_TEMPERATURE_GROUP_2",
+    "UTD_RECOVERY_TEMPERATURE_GROUP_2",
+    "HIGH_IMBALANCE_ERROR_mV",
+    "CONTACTOR_CUT_OFF_TIME_ms",    
+    "PRECHARGE_RETRY_TIMEOUT",
+    "PRECHARGE_RETRY_LIMIT",
+    "PRECHARGE_TIMEOUT",   
+    "MINIMUM_REQUIRED_CONFIG",                        #TODO ADD RANGES FOR ALL PARAMS  ,OUT OF BOUNDS 
+]
 
     entry_fields = []  
 

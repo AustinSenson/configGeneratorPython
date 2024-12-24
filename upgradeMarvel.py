@@ -148,7 +148,7 @@ if __name__ == "__main__":
             sys.exit(1)
         file_path = sys.argv[2]
         try:
-            config_version_str = file_path.replace('D:/configGeneratorPython/v', '').replace('.00.00.csv', '')
+            config_version_str = file_path.replace('D:/configGeneratorRepo/configGeneratorPython/v', '').replace('.00.00.csv', '')
             config_version = int(config_version_str)
         except ValueError:
             print("Error: Unable to parse configuration version from the file path. Please check the file name format.")
