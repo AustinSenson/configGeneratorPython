@@ -4,10 +4,10 @@ import sys
 import os
 
 OTA_COMM = 0x6FA
-XAVIER_FOTA_INIT = [9, 2, 1, 2, 2]
-XAVIER_COTA_INIT = [9, 2, 1, 4, 2]
-XAVIER_FOTA_DONE = [9, 2, 1, 5, 2]
-XAVIER_COTA_DONE = [0, 2, 1, 0xA, 2]
+MARVEL_FOTA_INIT = [9, 2, 1, 2, 2]
+MARVEL_COTA_INIT = [9, 2, 1, 4, 2]
+MARVEL_FOTA_DONE = [9, 2, 1, 5, 2]
+MARVEL_COTA_DONE = [0, 2, 1, 0xA, 2]
 
 
 def transfer_file(file_path, local_temp_file):
@@ -83,13 +83,13 @@ def upgradeMarvel_FOTA(bin_file_path, version_input):
                 target_file.write(app_bin_content)
 
             print(f"Got {app_name} file")
-            send_can(OTA_COMM, XAVIER_FOTA_INIT)
+            send_can(OTA_COMM, MARVEL_FOTA_INIT)
             status = receive_can(0x6FA)
             if status:
                 sleep(1)
                 os.system(f"app.exe app.bin")
                 print("Update done, Switching Partition")
-                send_can(OTA_COMM, XAVIER_FOTA_DONE)
+                send_can(OTA_COMM, MARVEL_FOTA_DONE)
                 os.remove(local_bin_file_path)
             else:
                 print("ECU didn't respond")
@@ -103,7 +103,7 @@ def upgradeMarvel_COTA(file_path):
     print(file_path)
     print(config_version)
     while True:
-        received_msg = receive_can(0x7A1)
+        received_msg = receive_can(0x7A1)  #add timeout for CAN wait here to prevent infinite wait 
         if received_msg[0]:
             if received_msg[1][-8] == 2:
                 if received_msg[1][-3] == config_version:
@@ -117,14 +117,14 @@ def upgradeMarvel_COTA(file_path):
     local_txt_file = "conf.txt"
     if transfer_file(file_path, local_txt_file):
         # print(f"Got {config_name} file")
-        send_can(OTA_COMM, XAVIER_COTA_INIT)
+        send_can(OTA_COMM, MARVEL_COTA_INIT)
         sleep(1)
         if not is_executable("cota.exe"):
             print("executable invalid")
             return
         os.system(f"cota.exe {local_txt_file}") #check local bin file path
         print("COTA Done")
-        send_can(OTA_COMM, XAVIER_COTA_DONE) 
+        send_can(OTA_COMM, MARVEL_COTA_DONE) 
         print("Update DONE")
         os.remove(local_txt_file)
         received_msg = receive_can(0x7A1)
@@ -139,26 +139,28 @@ def upgradeMarvel_COTA(file_path):
 if __name__ == "__main__":
     if len(sys.argv) < 3:
         print("Usage: upgradeMarvel.py <task> <file_path> [<config_version>] [<bin_file_path> <version_input>]")
+        # print("stuck here 1")
         sys.exit(1)
 
     task = sys.argv[1]
     if task == "COTA":
         if len(sys.argv) != 3:
+            # print("stuck here 2")
             print("Usage for COTA: upgradeMarvel.py COTA <file_path> <config_version>")
             sys.exit(1)
         file_path = sys.argv[2]
         try:
-            config_version_str = file_path.replace('D:/configGeneratorRepo/configGeneratorPython/v', '').replace('.00.00.csv', '')
+            config_version_str = file_path.replace('D:/configGeneratorPython/v', '').replace('.00.00.csv', '')
             config_version = int(config_version_str)
         except ValueError:
             print("Error: Unable to parse configuration version from the file path. Please check the file name format.")
+            # print("stuck here 3")
             config_version = None
             sys.exit(1)
         print("COTA START")
         print(file_path)
         upgradeMarvel_COTA(file_path)
         sys.exit(0)
-                        #    , config_version)
 
     elif task == "FOTA":        #TODO test FOTA
         if len(sys.argv) != 4:

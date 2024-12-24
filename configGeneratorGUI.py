@@ -8,6 +8,9 @@ from tkinter import messagebox
 from tkinter import simpledialog
 from PIL import Image, ImageTk
 import subprocess
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QLineEdit, 
+                             QFileDialog, QWidget, QScrollArea, QFrame, QMessageBox, QGridLayout)
+from PyQt5.QtCore import Qt
 import tempfile
 import os
 
@@ -159,16 +162,30 @@ def save_all_configs(parameter_names, config_values):
 def save_configs(entry_fields, parameter_names):
     config_values = []
     for i, entry in enumerate(entry_fields):
-        config_values.append(entry.get())  
-    
+        config_values.append(entry.text())  # Use text() to get the text from QLineEdit    
     # Save the reference CSV and config values
     save_all_configs(parameter_names, config_values)   # Reference CSV
     
+from tkinter import Tk, filedialog
+
 def select_file(file_type):
-    # Open file dialog for selecting files
+    """
+    Open file dialog for selecting files based on the provided file type.
+    :param file_type: The type of file to select ("binary" or "CSV").
+    :return: The selected file path.
+    """
+    # Set up the prompt based on the file type
+    if file_type.lower() == "binary":
+        prompt = "Select binary file for SoP structure"
+    elif file_type.lower() == "csv":
+        prompt = "Select configuration SoP"
+    else:
+        prompt = f"Select {file_type} file"
+    
+    # Open file dialog
     root = Tk()
     root.withdraw()  # Hide the root window
-    file_path = filedialog.askopenfilename(title=f"Select {file_type} file", filetypes=[("All Files", "*.*")])
+    file_path = filedialog.askopenfilename(title=prompt, filetypes=[("All Files", "*.*")])
     return file_path
 
 def add_slashes_before_key_in_string(csv_file, input_string, num_slashes):
@@ -176,13 +193,13 @@ def add_slashes_before_key_in_string(csv_file, input_string, num_slashes):
     x = input_string.find("\"binary_data\"")
     print("Index of '\"binary_data\"':", x)
     slashes = "\\" * num_slashes
-    print(input_string[x:])
+    # print(input_string[x:])
     modified_string = input_string[:x] + slashes + input_string[x:]
     string_val = modified_string.replace('"', '\\"')
     string_val = string_val.replace('n\\', '\\n\\')
     with open(csv_file, "w") as file:
         file.write(string_val)
-    print("Modified string:", string_val)
+    # print("Modified string:", string_val)
     
     return string_val
     # print("Modified string:", string_val)
@@ -194,17 +211,22 @@ def load_configs(entry_fields):
 
     
 def load_configs_pass(entry_fields):
-    file_path = filedialog.askopenfilename(defaultextension=".csv", filetypes=[("CSV files", "*.csv")])
-    
+    file_path = QFileDialog.getOpenFileName(
+        caption="Open CSV File",
+        filter="CSV files (*.csv);;All files (*)"
+    )[0]  # Get the file path
+
     if file_path:
         with open(file_path, newline='') as file:
             csv_reader = csv.reader(file)
-            config_values = next(csv_reader)
-            
+            config_values = next(csv_reader)  # Read the first row of the CSV file
+
             # Populate the entry fields with the corresponding config values
             for i, entry in enumerate(entry_fields):
-                entry.delete(0, 'end')
-                entry.insert(0, config_values[i])
+                entry.clear()  # Clear the existing text
+                if i < len(config_values):
+                    entry.setText(config_values[i])  # Set the new text
+
 
 def prepare_data_for_transmission(csv_file, csv_data, binary_data,character_count):
     # Encode binary data as Base64
@@ -227,7 +249,7 @@ def prepare_data_for_transmission(csv_file, csv_data, binary_data,character_coun
     num_slashes = 4 - ((character_count + 2) % 4)                                          # considering the /n/ also
     json_data_c_style = json_data_c_style.replace("\\", "")
     json_data_new = add_slashes_before_key_in_string(csv_file, json_data_c_style, num_slashes)
-    print(json_data_new)
+    # print(json_data_new)
     return json_data_new
 
 def jsonGenerator(csv_file, binary_file):
@@ -249,7 +271,9 @@ def jsonGenerator(csv_file, binary_file):
 def flashConfigs():
     # Open file dialog to select a configuration file
     csv_file = select_file("CSV")
-    binary_file = select_file("binary")
+
+    binary_file = select_binary_from_gui()
+
     jsonGenerator(csv_file, binary_file)
     file_path = csv_file
     # config_version = file_path.replace('v', '').replace('.csv', '')
@@ -286,150 +310,181 @@ def flashConfigs():
         print("Flash COTA canceled.")
         messagebox.showinfo("Restricted Action")
 
-def run_cota():
-    clear_initial_buttons()
-    heading = Label(root, text="MARVEL CONFIGURATION UPDATE INTERFACE", font=("Arial", 16, "bold"), bg="black", fg="white")
-    heading.pack(pady=10)
+# Function to select the binary file
+def select_binary_from_gui():
+    response = messagebox.askyesno("Select Binary", "Do you want to generate the binary file using the GUI?")
+    if response:
+        # Call the GUI script to generate the binary file
+        result = subprocess.run(
+            ["python", "SoP_GUI.py"],  # Replace with the actual path to your GUI script
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        binary_path = result.stdout.strip()
+        return binary_path
+    else:
+        # Select the binary file manually
+        file_path = filedialog.askopenfilename(
+            title="Select Binary File",
+            filetypes=[("Binary Files", "*.bin"), ("All Files", "*.*")]
+        )
+        return file_path
 
-    # Add a search bar at the top
-    search_frame = Frame(root, bg="black")
-    search_frame.pack(pady=10)
-    Label(search_frame, text="Search Config:", font=("Arial", 12), bg="black", fg="white").pack(side=LEFT, padx=5)
-    entry_search = Entry(search_frame, width=30)
-    entry_search.pack(side=LEFT, padx=5)
+class RunCOTA(QMainWindow):
+    def __init__(self):
+        super().__init__()
+
+        self.setWindowTitle("MARVEL CONFIGURATION UPDATE INTERFACE")
+        self.setGeometry(100, 100, 750, 700)
+
+        self.main_widget = QWidget()
+        self.setCentralWidget(self.main_widget)
+
+        self.layout = QVBoxLayout()
+        self.main_widget.setLayout(self.layout)
+
+        # Add heading
+        self.heading = QLabel("MARVEL CONFIGURATION UPDATE INTERFACE")
+        self.heading.setAlignment(Qt.AlignCenter)
+        self.heading.setStyleSheet("font-size: 16px; font-weight: bold; color: white; background-color: black;")
+        self.layout.addWidget(self.heading)
+
+        self.search_bar_layout = QHBoxLayout()
+        self.search_label = QLabel("Search Config:")
+        self.search_label.setStyleSheet("font-size: 12px; color: white; background-color: black;")
+        self.search_bar_layout.addWidget(self.search_label)
+        self.search_entry = QLineEdit()
+        self.search_bar_layout.addWidget(self.search_entry)
+        self.search_button = QPushButton("Search")
+        self.search_button.clicked.connect(self.search_config)
+        self.search_bar_layout.addWidget(self.search_button)
+        self.layout.addLayout(self.search_bar_layout)
+
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_widget = QWidget()
+        self.scroll_area.setWidget(self.scroll_widget)
+        self.layout.addWidget(self.scroll_area)
+
+        self.scroll_layout = QGridLayout()
+        self.scroll_widget.setLayout(self.scroll_layout)
+
+        self.parameter_names =[
+        "CONFIG_MAJOR_VERSION",
+        "CONFIG_MINOR_VERSION",
+        "NUMBER_OF_CMU",
+        "CELL_IN_SERIES",
+        "SHUNT_RESISTOR_uOhm",
+        "CELL_MAX_VOLTAGE_THRESHOLD_mV",
+        "CELL_MIN_VOLTAGE_THRESHOLD_mV",
+        "CELL_BALANCING_START_VOLTAGE_mV",
+        "CELL_IMBALANCE_THRESHOLD_mV",
+        "PACK_MAX_CAPACITY_Ah",
+        "PACK_USABLE_CAPACITY_mAh",
+        "EEPROM_CAP_WRITE_mAh",
+        "IR_WAIT_SOC",
+        "IR_START_SOC",
+        "IR_CYCLE_COUNT_THRESHOLD",
+        "SLOW_CHARGING_MAX_CURRENT_A",
+        "FAST_CHARGING_MAX_CURRENT_A",
+        "CHARGE_CURRENT_DETECTION_THRESHOLD_mA",
+        "SLOW_CHARGING_TARGET_mV",
+        "FAST_CHARGING_TARGET_mV",
+        "CV_TRANSITION_mV",
     
-    # Define the main frame and other required components
-    main_frame = Frame(root, bg="grey", padx=20, pady=20)
-    main_frame.pack(fill=BOTH, expand=1)
+        #Scale it *100
+        "FAST_CHARGING_SCALING_FACTOR",
+        "SLOW_CHARGING_CV_SCALING_FACTOR",
+        "SLOW_CHARGING_CC_SCALING_FACTOR",
 
-    canvas = Canvas(main_frame, bg="lightgrey", highlightthickness=0)
-    canvas.pack(side=LEFT, fill=BOTH, expand=1)
+        "OCC_ERROR_CURRENT_A",
+        "OCC_WARNING_CURRENT_A",
+        "OCD_ERROR_CURRENT_A",
+        "OCD_WARNING_CURRENT_A",
+        "ERROR_TIMEOUT_ms",
+        "WARNING_TIMEOUT_ms",
+        "RECOVERY_TIMEOUT_ms",
+        "BALANCING_DERATING_START_TEMP_C",
+        "BALANCING_DERATING_END_TEMP_C",
+        "BALANCING_MAX_ON_TIME_ms",
+        "BALANCING_MIN_ON_TIME_ms",
+        "BALANCING_MAX_OFF_TIME_ms",
+        "OTC_ERROR_TEMPERATURE_GROUP_1",
+        "OTC_WARNING_TEMPERATURE_GROUP_1",
+        "OTC_RECOVERY_TEMPERATURE_GROUP_1",
+        "OTD_ERROR_TEMPERATURE_GROUP_1",
+        "OTD_WARNING_TEMPERATURE_GROUP_1",
+        "OTD_RECOVERY_TEMPERATURE_GROUP_1",
+        "UTC_ERROR_TEMPERATURE_GROUP_1",
+        "UTC_WARNING_TEMPERATURE_GROUP_1",
+        "UTC_RECOVERY_TEMPERATURE_GROUP_1",
+        "UTD_ERROR_TEMPERATURE_GROUP_1",
+        "UTD_WARNING_TEMPERATURE_GROUP_1",
+        "UTD_RECOVERY_TEMPERATURE_GROUP_1",
+        "OTC_ERROR_TEMPERATURE_GROUP_2",
+        "OTC_WARNING_TEMPERATURE_GROUP_2",
+        "OTC_RECOVERY_TEMPERATURE_GROUP_2",
+        "OTD_ERROR_TEMPERATURE_GROUP_2",
+        "OTD_WARNING_TEMPERATURE_GROUP_2",
+        "OTD_RECOVERY_TEMPERATURE_GROUP_2",
+        "UTC_ERROR_TEMPERATURE_GROUP_2",
+        "UTC_WARNING_TEMPERATURE_GROUP_2",
+        "UTC_RECOVERY_TEMPERATURE_GROUP_2",
+        "UTD_ERROR_TEMPERATURE_GROUP_2",
+        "UTD_WARNING_TEMPERATURE_GROUP_2",
+        "UTD_RECOVERY_TEMPERATURE_GROUP_2",
+        "HIGH_IMBALANCE_ERROR_mV",
+        "CONTACTOR_CUT_OFF_TIME_ms",    
+        "PRECHARGE_RETRY_TIMEOUT",
+        "PRECHARGE_RETRY_LIMIT",
+        "PRECHARGE_TIMEOUT",   
+        "MINIMUM_REQUIRED_CONFIG",                     
+        ]
 
-    scrollbar = Scrollbar(main_frame, orient=VERTICAL, command=canvas.yview)
-    scrollbar.pack(side=RIGHT, fill=Y)
+        self.entry_fields = []
+        for idx, param_name in enumerate(self.parameter_names):
+            label = QLabel(f"{param_name}:")
+            label.setStyleSheet("font-size: 10px; color: black;")
+            entry = QLineEdit()
+            self.scroll_layout.addWidget(label, idx, 0)
+            self.scroll_layout.addWidget(entry, idx, 1)
+            self.entry_fields.append(entry)
 
-    canvas.configure(yscrollcommand=scrollbar.set)
-    canvas.bind('<Configure>', lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        # Add Save, Load, and Flash buttons
+        self.button_save = QPushButton("Save Config")
+        self.button_save.clicked.connect(self.save_configs_test)
+        self.layout.addWidget(self.button_save)
 
-    frame = Frame(canvas, bg="lightgrey")
-    canvas.create_window((0, 0), window=frame, anchor="nw")
+        self.button_load = QPushButton("Load Config")
+        self.button_load.clicked.connect(self.load_configs)
+        self.layout.addWidget(self.button_load)
 
-    # Bind the search button to the search_config function with required parameters
-    Button(search_frame, text="Search", command=lambda: search_config(entry_search.get(), frame, canvas)).pack(side=LEFT, padx=5)
+        self.button_flash = QPushButton("Flash Config")
+        self.button_flash.clicked.connect(self.flash_configs)
+        self.layout.addWidget(self.button_flash)
 
-    # Bind the Enter key to call the search function
-    entry_search.bind("<Return>", lambda event: search_config(entry_search.get(), frame, canvas))
+    def search_config(self):
+        search_term = self.search_entry.text().lower()
+        for i in range(self.scroll_layout.count()):
+            widget = self.scroll_layout.itemAt(i).widget()
+            if isinstance(widget, QLabel) and search_term in widget.text().lower():
+                self.scroll_area.verticalScrollBar().setValue(widget.y())
+                break
 
-    def create_label_entry(parent, label_text, row):
-        label = Label(parent, text=label_text, padx=10, pady=5, bg="lightgrey", fg="black", font=("Arial", 10, "bold"))
-        label.grid(row=row, column=0, sticky="w", padx=10, pady=5)
-        entry = Entry(parent, width=50)
-        entry.grid(row=row, column=1, padx=10, pady=5)
-        return entry
+    def save_configs_test(self):
+        config_values = save_configs(self.entry_fields, self.parameter_names)
+        if config_values:
+            QMessageBox.information(self, "Success", "Configurations saved successfully!")
 
-    # Enable mouse scrolling on Windows and Linux
-    def on_mouse_wheel(event):
-        canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+    def load_configs(self):
+        load_configs(self.entry_fields)
+        # QMessageBox.information(self, "Load", "Load Config functionality here.")
 
-    # Enable mouse scrolling on macOS (delta is different)
-    def on_mouse_wheel_mac(event):
-        canvas.yview_scroll(-1 if event.delta > 0 else 1, "units")
+    def flash_configs(self):
 
-    # Bind the mouse scroll event globally to the root window for cross-GUI scrolling
-    if root.tk.call("tk", "windowingsystem") == "aqua":  # macOS
-        root.bind_all("<MouseWheel>", on_mouse_wheel_mac)
-    else:  # Windows and Linux
-        root.bind_all("<MouseWheel>", on_mouse_wheel)
-
-
-    # Define labels and entries in the frame
-    parameter_names = [
-    "CONFIG_MAJOR_VERSION",
-    "CONFIG_MINOR_VERSION",
-    "NUMBER_OF_CMU",
-    "CELL_IN_SERIES",
-    "SHUNT_RESISTOR_uOhm",
-    "CELL_MAX_VOLTAGE_THRESHOLD_mV",
-    "CELL_MIN_VOLTAGE_THRESHOLD_mV",
-    "CELL_BALANCING_START_VOLTAGE_mV",
-    "CELL_IMBALANCE_THRESHOLD_mV",
-    "PACK_MAX_CAPACITY_Ah",
-    "PACK_USABLE_CAPACITY_mAh",
-    "EEPROM_CAP_WRITE_mAh",
-    "IR_WAIT_SOC",
-    "IR_START_SOC",
-    "IR_CYCLE_COUNT_THRESHOLD",
-    "SLOW_CHARGING_MAX_CURRENT_A",
-    "FAST_CHARGING_MAX_CURRENT_A",
-    "CHARGE_CURRENT_DETECTION_THRESHOLD_mA",
-    "SLOW_CHARGING_TARGET_mV",
-    "FAST_CHARGING_TARGET_mV",
-    "CV_TRANSITION_mV",
-   
-    #Scale it *100
-    "FAST_CHARGING_SCALING_FACTOR",
-    "SLOW_CHARGING_CV_SCALING_FACTOR",
-    "SLOW_CHARGING_CC_SCALING_FACTOR",
-
-    "OCC_ERROR_CURRENT_A",
-    "OCC_WARNING_CURRENT_A",
-    "OCD_ERROR_CURRENT_A",
-    "OCD_WARNING_CURRENT_A",
-    "ERROR_TIMEOUT_ms",
-    "WARNING_TIMEOUT_ms",
-    "RECOVERY_TIMEOUT_ms",
-    "BALANCING_DERATING_START_TEMP_C",
-    "BALANCING_DERATING_END_TEMP_C",
-    "BALANCING_MAX_ON_TIME_ms",
-    "BALANCING_MIN_ON_TIME_ms",
-    "BALANCING_MAX_OFF_TIME_ms",
-    "OTC_ERROR_TEMPERATURE_GROUP_1",
-    "OTC_WARNING_TEMPERATURE_GROUP_1",
-    "OTC_RECOVERY_TEMPERATURE_GROUP_1",
-    "OTD_ERROR_TEMPERATURE_GROUP_1",
-    "OTD_WARNING_TEMPERATURE_GROUP_1",
-    "OTD_RECOVERY_TEMPERATURE_GROUP_1",
-    "UTC_ERROR_TEMPERATURE_GROUP_1",
-    "UTC_WARNING_TEMPERATURE_GROUP_1",
-    "UTC_RECOVERY_TEMPERATURE_GROUP_1",
-    "UTD_ERROR_TEMPERATURE_GROUP_1",
-    "UTD_WARNING_TEMPERATURE_GROUP_1",
-    "UTD_RECOVERY_TEMPERATURE_GROUP_1",
-    "OTC_ERROR_TEMPERATURE_GROUP_2",
-    "OTC_WARNING_TEMPERATURE_GROUP_2",
-    "OTC_RECOVERY_TEMPERATURE_GROUP_2",
-    "OTD_ERROR_TEMPERATURE_GROUP_2",
-    "OTD_WARNING_TEMPERATURE_GROUP_2",
-    "OTD_RECOVERY_TEMPERATURE_GROUP_2",
-    "UTC_ERROR_TEMPERATURE_GROUP_2",
-    "UTC_WARNING_TEMPERATURE_GROUP_2",
-    "UTC_RECOVERY_TEMPERATURE_GROUP_2",
-    "UTD_ERROR_TEMPERATURE_GROUP_2",
-    "UTD_WARNING_TEMPERATURE_GROUP_2",
-    "UTD_RECOVERY_TEMPERATURE_GROUP_2",
-    "HIGH_IMBALANCE_ERROR_mV",
-    "CONTACTOR_CUT_OFF_TIME_ms",    
-    "PRECHARGE_RETRY_TIMEOUT",
-    "PRECHARGE_RETRY_LIMIT",
-    "PRECHARGE_TIMEOUT",   
-    "MINIMUM_REQUIRED_CONFIG",                        #TODO ADD RANGES FOR ALL PARAMS  ,OUT OF BOUNDS 
-]
-
-    entry_fields = []  
-
-    for idx, param_name in enumerate(parameter_names):
-        entry = create_label_entry(frame, f"{param_name} :", idx)
-        entry_fields.append(entry) 
-        pass
-    # Save and Load Config Buttons
-    button_save = Button(root, text="Save Config", command=lambda: save_configs(entry_fields, parameter_names))
-    button_save.pack(pady=10)
-
-    button_load = Button(root, text="Load Config", command=lambda: load_configs(entry_fields))
-    button_load.pack(pady=10)
-
-    button_flash = Button(root, text="Flash Config", command=flashConfigs)
-    button_flash.pack(pady=10)
+        flashConfigs()
+        # QMessageBox.information(self, "Flash", "Flash Config functionality here.")
 
 def run_fota():
     # Incorporate FOTA under this function
@@ -482,49 +537,6 @@ def run_fota():
     else:
         messagebox.showinfo("Cancelled", "No file selected. Flashing canceled.")
 
-
-
-
-
-# Create the GUI window
-root = Tk()
-root.title("Config Parameter Input")
-
-# Set the overall background color
-root.configure(bg="black")
-
-# Set the initial window size and make it resizable
-root.geometry("750x700")
-root.state('normal')
-
-# Load the image and adjust its transparency
-image = Image.open("D:/configGeneratorPython/background.png").convert("RGBA")
-alpha = 200  # Set the transparency level (0 = fully transparent, 255 = fully opaque)
-image.putalpha(alpha)
-
-# Convert the image for Tkinter and create a label to display it
-background_image = ImageTk.PhotoImage(image)
-background_label = Label(root, image=background_image)
-background_label.place(x=0, y=0, relwidth=1, relheight=1)
-
-# Set the overall background color (as a fallback)
-root.configure(bg="black")
-
-heading = Label(root, text="MARVEL UPDATE INTERFACE", font=("Arial", 16, "bold"), bg="black", fg="white")
-heading.pack(pady=10)
-
-
-#Select FOTA or COTA
-fota_button = Button(root, text="FOTA", command=run_fota)
-fota_button.pack(pady=10)
-
-cota_button = Button(root, text="COTA", command=run_cota)
-cota_button.pack(pady=10)
-
-
-
-# Run the GUI loop
-root.mainloop()
 
 
 
